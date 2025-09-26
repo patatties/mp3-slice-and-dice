@@ -64,11 +64,8 @@ export const FileUpload = ({ onFileUpload }: FileUploadProps) => {
               Choose File
             </Button>
             
-            <div className="text-sm text-muted-foreground space-y-1">
-              <div>Supported formats: MP3, WAV, M4A, AAC, OGG</div>
-              <div className="flex items-center justify-center gap-1 text-xs">
-                🔒 <span className="text-primary">Your files stay private</span> - everything is processed locally in your browser
-              </div>
+            <div className="text-sm text-muted-foreground">
+              Supported formats: MP3, WAV, M4A, AAC, OGG
             </div>
           </div>
         </div>

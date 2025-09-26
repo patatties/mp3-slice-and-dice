@@ -31,18 +31,12 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-hero">
       <div className="container mx-auto px-4 py-8">
         <header className="text-center mb-12">
-          <h1 className="text-5xl font-bold bg-gradient-accent bg-clip-text text-transparent mb-2">
-            Audio Split
+          <h1 className="text-5xl font-bold bg-gradient-accent bg-clip-text text-transparent mb-4">
+            AudioSplit Pro
           </h1>
-          <p className="text-sm text-muted-foreground mb-4">by patatties</p>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Professional MP3 splitting tool. Upload your audio file, set split points, and download individual segments.
           </p>
-          <div className="flex items-center justify-center mt-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20">
-              🔒 <span className="text-primary font-medium">100% Private</span> - All processing happens locally in your browser
-            </div>
-          </div>
         </header>
 
         {!audioFile ? (
