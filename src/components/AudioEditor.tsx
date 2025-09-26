@@ -7,8 +7,8 @@ import { AudioControls } from "./AudioControls";
 import { SplitPointsList } from "./SplitPointsList";
 import { Download, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
-// @ts-ignore
-import * as lamejs from "lamejs";
+import { FFmpeg } from "@ffmpeg/ffmpeg";
+import { toBlobURL } from "@ffmpeg/util";
 
 interface AudioEditorProps {
   audioFile: File;
@@ -30,6 +30,9 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
   const [splitPoints, setSplitPoints] = useState<SplitPoint[]>([]);
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
   const [selectedFormat, setSelectedFormat] = useState<'wav' | 'mp3'>('wav');
+  const ffmpegRef = useRef<FFmpeg | null>(null);
+  const [isFfmpegLoading, setIsFfmpegLoading] = useState(false);
+  const [isEncoding, setIsEncoding] = useState(false);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -95,6 +98,12 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
     const fileExtension = selectedFormat;
     
     try {
+      setIsEncoding(true);
+      // Preload encoder if MP3 selected
+      if (selectedFormat === 'mp3') {
+        await ensureFfmpeg();
+      }
+
       for (let i = 0; i < points.length - 1; i++) {
         const startTime = points[i];
         const endTime = points[i + 1];
@@ -115,9 +124,10 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
     } catch (error) {
       console.error('Error downloading segments:', error);
       toast.error('Error processing audio segments');
+    } finally {
+      setIsEncoding(false);
     }
   };
-
   const extractSegment = async (buffer: AudioBuffer, startTime: number, endTime: number): Promise<AudioBuffer> => {
     const audioContext = new AudioContext();
     const startSample = Math.floor(startTime * buffer.sampleRate);
@@ -186,43 +196,29 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
     return new Blob([arrayBuffer], { type: 'audio/wav' });
   };
 
-  const audioBufferToMp3Blob = (buffer: AudioBuffer): Promise<Blob> => {
-    return new Promise((resolve) => {
-      const mp3encoder = new lamejs.Mp3Encoder(buffer.numberOfChannels, buffer.sampleRate, 128);
-      const mp3Data: Uint8Array[] = [];
-      
-      const sampleBlockSize = 1152;
-      const numberOfChannels = buffer.numberOfChannels;
-      
-      for (let i = 0; i < buffer.length; i += sampleBlockSize) {
-        const leftChannelSamples = new Int16Array(sampleBlockSize);
-        const rightChannelSamples = numberOfChannels > 1 ? new Int16Array(sampleBlockSize) : undefined;
-        
-        // Convert float samples to int16
-        const leftChannel = buffer.getChannelData(0);
-        const rightChannel = numberOfChannels > 1 ? buffer.getChannelData(1) : null;
-        
-        for (let j = 0; j < sampleBlockSize && i + j < buffer.length; j++) {
-          leftChannelSamples[j] = Math.max(-32768, Math.min(32767, leftChannel[i + j] * 32767));
-          if (rightChannel && rightChannelSamples) {
-            rightChannelSamples[j] = Math.max(-32768, Math.min(32767, rightChannel[i + j] * 32767));
-          }
-        }
-        
-        const mp3buf = mp3encoder.encodeBuffer(leftChannelSamples, rightChannelSamples);
-        if (mp3buf.length > 0) {
-          mp3Data.push(mp3buf);
-        }
-      }
-      
-      const mp3buf = mp3encoder.flush();
-      if (mp3buf.length > 0) {
-        mp3Data.push(mp3buf);
-      }
-      
-      const blob = new Blob(mp3Data, { type: 'audio/mp3' });
-      resolve(blob);
+  const ensureFfmpeg = async (): Promise<FFmpeg> => {
+    if (ffmpegRef.current) return ffmpegRef.current;
+    setIsFfmpegLoading(true);
+    const ffmpeg = new FFmpeg();
+    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+    await ffmpeg.load({
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript'),
     });
+    ffmpegRef.current = ffmpeg;
+    setIsFfmpegLoading(false);
+    return ffmpeg;
+  };
+
+  const audioBufferToMp3Blob = async (buffer: AudioBuffer): Promise<Blob> => {
+    const ffmpeg = await ensureFfmpeg();
+    const wavBlob = await audioBufferToBlob(buffer, 'wav');
+    const wavBytes = new Uint8Array(await wavBlob.arrayBuffer());
+    await ffmpeg.writeFile('input.wav', wavBytes);
+    await ffmpeg.exec(['-i', 'input.wav', '-c:a', 'libmp3lame', '-b:a', '192k', 'output.mp3']);
+    const mp3Data = await ffmpeg.readFile('output.mp3');
+    return new Blob([mp3Data as Uint8Array], { type: 'audio/mpeg' });
   };
 
   const formatTime = (time: number) => {
