@@ -312,7 +312,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
     await ffmpeg.writeFile('input.wav', wavBytes);
 
     try {
-      await ffmpeg.exec(['-i', 'input.wav', '-c:a', 'libmp3lame', '-b:a', '192k', 'output.mp3']);
+      await ffmpeg.exec(['-i', 'input.wav', '-c:a', 'libmp3lame', '-b:a', '320k', 'output.mp3']);
       const mp3Data = await ffmpeg.readFile('output.mp3');
       return new Blob([mp3Data as Uint8Array], { type: 'audio/mpeg' });
     } finally {

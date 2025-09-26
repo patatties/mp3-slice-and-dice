@@ -34,8 +34,8 @@ export const SplitPointsList = ({
   };
   
   const estimateFileSize = (durationInSeconds: number) => {
-    // Estimate MP3 file size at 192kbps
-    const bitrate = 192; // kbps
+    // Estimate MP3 file size at 320kbps
+    const bitrate = 320; // kbps
     const sizeInKB = (durationInSeconds * bitrate) / 8;
     const sizeInMB = sizeInKB / 1024;
     return sizeInMB.toFixed(1);
