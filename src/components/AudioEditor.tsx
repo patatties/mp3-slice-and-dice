@@ -206,16 +206,23 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
   const ensureFfmpeg = async (): Promise<FFmpeg> => {
     if (ffmpegRef.current) return ffmpegRef.current;
     setIsFfmpegLoading(true);
-    const ffmpeg = new FFmpeg();
-    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
-    await ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-      workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript'),
-    });
-    ffmpegRef.current = ffmpeg;
-    setIsFfmpegLoading(false);
-    return ffmpeg;
+    try {
+      const ffmpeg = new FFmpeg();
+      const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist';
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${base}/umd/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${base}/umd/ffmpeg-core.wasm`, 'application/wasm'),
+        workerURL: await toBlobURL(`${base}/ffmpeg-core.worker.js`, 'text/javascript'),
+      });
+      ffmpegRef.current = ffmpeg;
+      return ffmpeg;
+    } catch (e) {
+      console.error('FFmpeg load failed', e);
+      toast.error('Kon MP3-encoder niet laden');
+      throw e;
+    } finally {
+      setIsFfmpegLoading(false);
+    }
   };
 
   const audioBufferToMp3Blob = async (buffer: AudioBuffer): Promise<Blob> => {
