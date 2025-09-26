@@ -6,7 +6,8 @@ import { AudioControls } from "./AudioControls";
 import { SplitPointsList } from "./SplitPointsList";
 import { Download, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
-import * as lamejs from "lamejs";
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 interface AudioEditorProps {
   audioFile: File;
@@ -27,6 +28,31 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
   const [isPlaying, setIsPlaying] = useState(false);
   const [splitPoints, setSplitPoints] = useState<SplitPoint[]>([]);
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
+  const [ffmpeg, setFFmpeg] = useState<FFmpeg | null>(null);
+  const [ffmpegLoaded, setFFmpegLoaded] = useState(false);
+
+  useEffect(() => {
+    // Load FFmpeg
+    const loadFFmpeg = async () => {
+      const ffmpegInstance = new FFmpeg();
+      
+      try {
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+        await ffmpegInstance.load({
+          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        });
+        
+        setFFmpeg(ffmpegInstance);
+        setFFmpegLoaded(true);
+      } catch (error) {
+        console.error('Error loading FFmpeg:', error);
+        toast.error('Error initializing MP3 encoder');
+      }
+    };
+
+    loadFFmpeg();
+  }, []);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -83,8 +109,8 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
   };
 
   const downloadSegments = async () => {
-    if (!audioBuffer) {
-      toast.error('Audio not ready for processing');
+    if (!audioBuffer || !ffmpeg || !ffmpegLoaded) {
+      toast.error('Audio processing not ready');
       return;
     }
 
@@ -139,43 +165,66 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
   };
 
   const audioBufferToMp3Blob = async (buffer: AudioBuffer): Promise<Blob> => {
+    if (!ffmpeg) throw new Error('FFmpeg not loaded');
+
+    // Convert AudioBuffer to WAV first
+    const wavBlob = await audioBufferToWavBlob(buffer);
+    const inputData = await fetchFile(wavBlob);
+    
+    // Write input file to FFmpeg
+    await ffmpeg.writeFile('input.wav', inputData);
+    
+    // Convert to MP3
+    await ffmpeg.exec(['-i', 'input.wav', '-codec:a', 'libmp3lame', '-b:a', '128k', 'output.mp3']);
+    
+    // Read output file
+    const outputData = await ffmpeg.readFile('output.mp3');
+    
+    // Clean up
+    await ffmpeg.deleteFile('input.wav');
+    await ffmpeg.deleteFile('output.mp3');
+    
+    return new Blob([outputData], { type: 'audio/mp3' });
+  };
+
+  const audioBufferToWavBlob = async (buffer: AudioBuffer): Promise<Blob> => {
     const numberOfChannels = buffer.numberOfChannels;
-    const sampleRate = buffer.sampleRate;
-    const mp3encoder = new lamejs.Mp3Encoder(numberOfChannels, sampleRate, 128);
+    const length = buffer.length * numberOfChannels * 2;
+    const arrayBuffer = new ArrayBuffer(length + 44);
+    const view = new DataView(arrayBuffer);
     
-    const mp3Data = [];
-    const sampleBlockSize = 1152;
+    // WAV header
+    const writeString = (offset: number, string: string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
     
-    // Convert float32 to int16
-    const leftChannel = buffer.getChannelData(0);
-    const rightChannel = numberOfChannels > 1 ? buffer.getChannelData(1) : leftChannel;
+    writeString(0, 'RIFF');
+    view.setUint32(4, length + 36, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numberOfChannels, true);
+    view.setUint32(24, buffer.sampleRate, true);
+    view.setUint32(28, buffer.sampleRate * numberOfChannels * 2, true);
+    view.setUint16(32, numberOfChannels * 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, length, true);
     
-    const left = new Int16Array(leftChannel.length);
-    const right = new Int16Array(rightChannel.length);
-    
-    for (let i = 0; i < leftChannel.length; i++) {
-      left[i] = Math.max(-32768, Math.min(32767, leftChannel[i] * 32768));
-      right[i] = Math.max(-32768, Math.min(32767, rightChannel[i] * 32768));
-    }
-    
-    // Encode in chunks
-    for (let i = 0; i < left.length; i += sampleBlockSize) {
-      const leftChunk = left.subarray(i, i + sampleBlockSize);
-      const rightChunk = right.subarray(i, i + sampleBlockSize);
-      const mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk);
-      
-      if (mp3buf.length > 0) {
-        mp3Data.push(mp3buf);
+    // Audio data
+    let offset = 44;
+    for (let i = 0; i < buffer.length; i++) {
+      for (let channel = 0; channel < numberOfChannels; channel++) {
+        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(channel)[i]));
+        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+        offset += 2;
       }
     }
     
-    // Finalize encoding
-    const mp3buf = mp3encoder.flush();
-    if (mp3buf.length > 0) {
-      mp3Data.push(mp3buf);
-    }
-    
-    return new Blob(mp3Data, { type: 'audio/mp3' });
+    return new Blob([arrayBuffer], { type: 'audio/wav' });
   };
 
   const formatTime = (time: number) => {
@@ -200,11 +249,11 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
           <div className="flex gap-3">
             <Button
               onClick={downloadSegments}
-              disabled={splitPoints.length === 0}
+              disabled={splitPoints.length === 0 || !ffmpegLoaded}
               className="bg-accent hover:bg-accent/90 text-accent-foreground"
             >
               <Download className="h-4 w-4 mr-2" />
-              Download Segments
+              {!ffmpegLoaded ? 'Loading MP3 Encoder...' : 'Download Segments'}
             </Button>
             <Button
               onClick={onReset}
