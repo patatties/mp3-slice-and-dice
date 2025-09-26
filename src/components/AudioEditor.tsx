@@ -36,6 +36,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
   const [isEncoding, setIsEncoding] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [volume, setVolume] = useState(1);
+  const [isStartingDownload, setIsStartingDownload] = useState(false);
 
   useEffect(() => {
     // Always load FFmpeg since we only support MP3
@@ -112,6 +113,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
     const points = [0, ...splitPoints.map(p => p.time), duration];
     
     try {
+      setIsStartingDownload(true);
       setIsEncoding(true);
       setProcessingProgress(0);
       await ensureFfmpeg();
@@ -154,6 +156,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
     } finally {
       setIsEncoding(false);
       setProcessingProgress(0);
+      setIsStartingDownload(false);
     }
   };
   const extractSegment = async (buffer: AudioBuffer, startTime: number, endTime: number): Promise<AudioBuffer> => {
@@ -314,15 +317,22 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
             <div className="flex flex-col gap-2">
               <Button
                 onClick={downloadSegments}
-                disabled={splitPoints.length === 0 || isFfmpegLoading || isEncoding}
-                className="bg-accent hover:bg-accent/90 text-accent-foreground"
+                disabled={splitPoints.length === 0 || isFfmpegLoading || isEncoding || isStartingDownload}
+                className="bg-accent hover:bg-accent/90 text-accent-foreground relative"
               >
+                {isStartingDownload && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-accent/90 rounded-md">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-accent-foreground/30 border-t-accent-foreground"></div>
+                  </div>
+                )}
                 <Download className="h-4 w-4 mr-2" />
                 {isFfmpegLoading
                   ? 'MP3 encoder laden...'
-                  : isEncoding
-                    ? 'MP3 encoderen...'
-                    : 'Download MP3 segmenten'}
+                  : isStartingDownload
+                    ? 'Voorbereiden...'
+                    : isEncoding
+                      ? 'MP3 encoderen...'
+                      : 'Download MP3 segmenten'}
               </Button>
               {isEncoding && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
