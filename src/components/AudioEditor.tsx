@@ -254,7 +254,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
           // 3) Last resort: esm for core/wasm + dist for worker (jsDelivr)
           const coreURL = await withTimeout(toBlobURL(`https://cdn.jsdelivr.net/npm/@ffmpeg/core@${VERSION}/dist/esm/ffmpeg-core.js`, 'text/javascript'), 'esm coreURL');
           const wasmURL = await withTimeout(toBlobURL(`https://cdn.jsdelivr.net/npm/@ffmpeg/core@${VERSION}/dist/esm/ffmpeg-core.wasm`, 'application/wasm'), 'esm wasmURL');
-          const workerURL = await withTimeout(toBlobURL(`https://cdn.jsdelivr.net/npm/@ffmpeg/core@${VERSION}/dist/ffmpeg-core.worker.js`, 'text/javascript'), 'workerURL');
+          const workerURL = await withTimeout(toBlobURL(`https://cdn.jsdelivr.net/npm/@ffmpeg/core@${VERSION}/dist/esm/ffmpeg-core.worker.js`, 'text/javascript'), 'esm workerURL');
           await withTimeout(ffmpeg.load({ coreURL, wasmURL, workerURL }), 'ffmpeg.load (esm)');
         }
       }
@@ -331,6 +331,21 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
                       : 'Download MP3 segments'
                   : 'Download Segments'}
               </Button>
+              {selectedFormat === 'mp3' && !isFfmpegLoading && !ffmpegRef.current && (
+                <Button
+                  variant="outline"
+                  className="border-border/50"
+                  onClick={async () => {
+                    try {
+                      await ensureFfmpeg();
+                      toast.success('MP3-encoder geladen.');
+                    } catch {}
+                  }}
+                >
+                  Retry MP3 encoder
+                </Button>
+              )}
+
             </div>
             <Button
               onClick={onReset}
