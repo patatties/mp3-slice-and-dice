@@ -207,14 +207,23 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
   };
 
   const deleteSegment = (segmentIndex: number) => {
-    // To delete a segment, remove the split point that defines its end
-    // Segment 1: remove first split point  
-    // Segment 2: remove second split point
-    // etc.
-    const splitPointIndex = segmentIndex - 1; // Convert to 0-based index
-    if (splitPointIndex >= 0 && splitPointIndex < splitPoints.length) {
-      removeSplitPoint(splitPoints[splitPointIndex].id);
-      toast.success(`Segment ${segmentIndex} removed`);
+    // Get total number of segments (split points + 1)
+    const totalSegments = splitPoints.length + 1;
+    
+    if (segmentIndex === totalSegments) {
+      // For the last segment, remove the split point that starts it
+      const splitPointIndex = segmentIndex - 2; // The split point that starts the last segment
+      if (splitPointIndex >= 0 && splitPointIndex < splitPoints.length) {
+        removeSplitPoint(splitPoints[splitPointIndex].id);
+        toast.success(`Last segment merged with previous segment`);
+      }
+    } else {
+      // For other segments, remove the split point at the end of that segment
+      const splitPointIndex = segmentIndex - 1; // Convert to 0-based index
+      if (splitPointIndex >= 0 && splitPointIndex < splitPoints.length) {
+        removeSplitPoint(splitPoints[splitPointIndex].id);
+        toast.success(`Segment ${segmentIndex} merged with next segment`);
+      }
     }
   };
 
