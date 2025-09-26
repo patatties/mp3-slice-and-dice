@@ -37,6 +37,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
   const [processingProgress, setProcessingProgress] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isStartingDownload, setIsStartingDownload] = useState(false);
+  const [buttonClicked, setButtonClicked] = useState(false);
 
   useEffect(() => {
     // Always load FFmpeg since we only support MP3
@@ -104,9 +105,15 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
     toast.success('Split point updated');
   };
 
+  const handleDownloadClick = () => {
+    setButtonClicked(true);
+    downloadSegments();
+  };
+
   const downloadSegments = async () => {
     if (!audioBuffer) {
       toast.error('Audio not ready for processing');
+      setButtonClicked(false);
       return;
     }
 
@@ -157,6 +164,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
       setIsEncoding(false);
       setProcessingProgress(0);
       setIsStartingDownload(false);
+      setButtonClicked(false);
     }
   };
   const extractSegment = async (buffer: AudioBuffer, startTime: number, endTime: number): Promise<AudioBuffer> => {
@@ -316,23 +324,29 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
           <div className="flex gap-3">
             <div className="flex flex-col gap-2">
               <Button
-                onClick={downloadSegments}
+                onClick={handleDownloadClick}
                 disabled={splitPoints.length === 0 || isFfmpegLoading || isEncoding || isStartingDownload}
-                className="bg-accent hover:bg-accent/90 text-accent-foreground relative"
+                className={`bg-accent hover:bg-accent/90 text-accent-foreground relative transition-all duration-200 ${
+                  buttonClicked ? 'scale-95 bg-accent/80' : ''
+                }`}
               >
-                {isStartingDownload && (
+                {(buttonClicked || isStartingDownload) && (
                   <div className="absolute inset-0 flex items-center justify-center bg-accent/90 rounded-md">
                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-accent-foreground/30 border-t-accent-foreground"></div>
                   </div>
                 )}
-                <Download className="h-4 w-4 mr-2" />
-                {isFfmpegLoading
-                  ? 'MP3 encoder laden...'
-                  : isStartingDownload
-                    ? 'Voorbereiden...'
+                <Download className={`h-4 w-4 mr-2 transition-opacity duration-200 ${
+                  buttonClicked || isStartingDownload ? 'opacity-0' : 'opacity-100'
+                }`} />
+                <span className={`transition-opacity duration-200 ${
+                  buttonClicked || isStartingDownload ? 'opacity-0' : 'opacity-100'
+                }`}>
+                  {isFfmpegLoading
+                    ? 'MP3 encoder laden...'
                     : isEncoding
                       ? 'MP3 encoderen...'
                       : 'Download MP3 segmenten'}
+                </span>
               </Button>
               {isEncoding && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
