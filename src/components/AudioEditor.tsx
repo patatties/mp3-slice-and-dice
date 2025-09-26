@@ -6,6 +6,7 @@ import { WaveformDisplay } from "./WaveformDisplay";
 import { AudioControls } from "./AudioControls";
 import { SplitPointsList } from "./SplitPointsList";
 import { Download, RotateCcw } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { toBlobURL } from "@ffmpeg/util";
@@ -33,6 +34,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
   const ffmpegRef = useRef<FFmpeg | null>(null);
   const [isFfmpegLoading, setIsFfmpegLoading] = useState(false);
   const [isEncoding, setIsEncoding] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState(0);
   const [volume, setVolume] = useState(1);
 
   useEffect(() => {
@@ -104,30 +106,47 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
     
     try {
       setIsEncoding(true);
+      setProcessingProgress(0);
       await ensureFfmpeg();
 
+      // First, process all segments
+      const segmentBlobs: { blob: Blob; filename: string }[] = [];
+      
       for (let i = 0; i < points.length - 1; i++) {
         const startTime = points[i];
         const endTime = points[i + 1];
         const segmentBuffer = await extractSegment(audioBuffer, startTime, endTime);
         const blob = await audioBufferToMp3Blob(segmentBuffer);
         
+        const filename = `${audioFile.name.replace(/\.[^/.]+$/, '')}_segment_${i + 1}.mp3`;
+        segmentBlobs.push({ blob, filename });
+        
+        // Update progress
+        const progress = ((i + 1) / (points.length - 1)) * 100;
+        setProcessingProgress(progress);
+      }
+      
+      toast.success('All segments processed! Starting downloads...');
+      
+      // Now download all segments at once
+      segmentBlobs.forEach(({ blob, filename }) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${audioFile.name.replace(/\.[^/.]+$/, '')}_segment_${i + 1}.mp3`;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-      }
+      });
       
-      toast.success(`Downloaded ${points.length - 1} MP3 segments`);
+      toast.success(`Downloaded ${segmentBlobs.length} MP3 segments`);
     } catch (error) {
       console.error('Error downloading segments:', error);
       toast.error('Error processing audio segments');
     } finally {
       setIsEncoding(false);
+      setProcessingProgress(0);
     }
   };
   const extractSegment = async (buffer: AudioBuffer, startTime: number, endTime: number): Promise<AudioBuffer> => {
@@ -285,18 +304,26 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
           </div>
           
           <div className="flex gap-3">
-            <Button
-              onClick={downloadSegments}
-              disabled={splitPoints.length === 0 || isFfmpegLoading || isEncoding}
-              className="bg-accent hover:bg-accent/90 text-accent-foreground"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              {isFfmpegLoading
-                ? 'MP3 encoder laden...'
-                : isEncoding
-                  ? 'MP3 encoderen...'
-                  : 'Download MP3 segmenten'}
-            </Button>
+            <div className="flex flex-col gap-2">
+              <Button
+                onClick={downloadSegments}
+                disabled={splitPoints.length === 0 || isFfmpegLoading || isEncoding}
+                className="bg-accent hover:bg-accent/90 text-accent-foreground"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {isFfmpegLoading
+                  ? 'MP3 encoder laden...'
+                  : isEncoding
+                    ? 'MP3 encoderen...'
+                    : 'Download MP3 segmenten'}
+              </Button>
+              {isEncoding && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Progress value={processingProgress} className="w-24" />
+                  <span>{Math.round(processingProgress)}%</span>
+                </div>
+              )}
+            </div>
             <Button
               onClick={onReset}
               variant="outline"
