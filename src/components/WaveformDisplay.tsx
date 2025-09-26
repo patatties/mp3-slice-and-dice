@@ -237,34 +237,62 @@ export const WaveformDisplay = ({
     return () => window.removeEventListener('resize', handleResize);
   }, [waveformData]);
 
+  // Show skeleton loader while waveform is processing
+  const isLoading = !audioBuffer || waveformData.length === 0;
+
   return (
     <Card className="bg-waveform-bg border-border/30 p-4">
       <div className="space-y-4">
         <div className="text-sm text-muted-foreground">
-          Click on the waveform to add split points
+          {isLoading ? 'Processing audio waveform...' : 'Click on the waveform to add split points'}
         </div>
         
         <div ref={containerRef} className="w-full">
-          <canvas
-            ref={canvasRef}
-            className={`w-full rounded border border-border/20 ${
-              hoveredPointId || dragState.isDragging 
-                ? 'cursor-grab' 
-                : 'cursor-crosshair'
-            } ${dragState.isDragging ? 'cursor-grabbing' : ''}`}
-            onClick={handleCanvasClick}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseLeave}
-            style={{ height: '150px' }}
-          />
+          {isLoading ? (
+            <div className="relative w-full h-[150px] rounded border border-border/20 bg-secondary/20 overflow-hidden">
+              {/* Shimmer effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer -translate-x-full"></div>
+              
+              {/* Skeleton waveform bars */}
+              <div className="flex items-center justify-center h-full px-2 gap-[1px]">
+                {Array.from({ length: 80 }, (_, i) => (
+                  <div
+                    key={i}
+                    className="bg-secondary/40 rounded-full"
+                    style={{
+                      height: `${20 + Math.sin(i * 0.3) * 30 + Math.random() * 40}px`,
+                      width: '3px',
+                      animation: `pulse ${1.5 + Math.random()}s ease-in-out infinite`,
+                      animationDelay: `${i * 0.02}s`
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <canvas
+              ref={canvasRef}
+              className={`w-full rounded border border-border/20 ${
+                hoveredPointId || dragState.isDragging 
+                  ? 'cursor-grab' 
+                  : 'cursor-crosshair'
+              } ${dragState.isDragging ? 'cursor-grabbing' : ''}`}
+              onClick={handleCanvasClick}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseLeave}
+              style={{ height: '150px' }}
+            />
+          )}
         </div>
         
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>0:00</span>
-          <span>Estimated total: ~{((duration * 192) / 8 / 1024).toFixed(1)} MB</span>
-          <span>{formatTime(duration)}</span>
+          <span>
+            {isLoading ? 'Calculating size...' : `Estimated total: ~${((duration * 192) / 8 / 1024).toFixed(1)} MB`}
+          </span>
+          <span>{isLoading ? '--:--' : formatTime(duration)}</span>
         </div>
       </div>
     </Card>
