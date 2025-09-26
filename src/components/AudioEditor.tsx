@@ -206,19 +206,47 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
   const ensureFfmpeg = async (): Promise<FFmpeg> => {
     if (ffmpegRef.current) return ffmpegRef.current;
     setIsFfmpegLoading(true);
+
+    const ffmpeg = new FFmpeg();
     try {
-      const ffmpeg = new FFmpeg();
-      const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
-      await ffmpeg.load({
-        coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm'),
-        workerURL: await toBlobURL(`${base}/ffmpeg-core.worker.js`, 'text/javascript'),
-      });
+      // Debug logs to help trace loading/encoding
+      try {
+        ffmpeg.on('log', ({ message }) => console.debug('[ffmpeg]', message));
+        ffmpeg.on('progress', ({ progress, time }) => console.debug('[ffmpeg-progress]', progress, time));
+      } catch {}
+
+      const loadWithBase = async (base: string) => {
+        await ffmpeg.load({
+          coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm'),
+          workerURL: await toBlobURL(`${base}/ffmpeg-core.worker.js`, 'text/javascript'),
+        });
+      };
+
+      try {
+        // 1) Preferred: jsDelivr (dist for all three files)
+        await loadWithBase('https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist');
+      } catch (e1) {
+        console.warn('FFmpeg load failed from jsDelivr/dist, trying unpkg/dist', e1);
+        try {
+          // 2) Fallback: unpkg (dist)
+          await loadWithBase('https://unpkg.com/@ffmpeg/core@0.12.6/dist');
+        } catch (e2) {
+          console.warn('FFmpeg load failed from unpkg/dist, trying mixed esm/dist', e2);
+          // 3) Last resort: esm for core/wasm + dist for worker
+          await ffmpeg.load({
+            coreURL: await toBlobURL('https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js', 'text/javascript'),
+            wasmURL: await toBlobURL('https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm', 'application/wasm'),
+            workerURL: await toBlobURL('https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/ffmpeg-core.worker.js', 'text/javascript'),
+          });
+        }
+      }
+
       ffmpegRef.current = ffmpeg;
       return ffmpeg;
     } catch (e) {
-      console.error('FFmpeg load failed', e);
-      toast.error('Kon MP3-encoder niet laden');
+      console.error('FFmpeg load failed on all strategies', e);
+      toast.error('Kon MP3-encoder niet laden. Controleer je netwerk of adblockers.');
       throw e;
     } finally {
       setIsFfmpegLoading(false);
@@ -227,12 +255,20 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
 
   const audioBufferToMp3Blob = async (buffer: AudioBuffer): Promise<Blob> => {
     const ffmpeg = await ensureFfmpeg();
+
     const wavBlob = await audioBufferToBlob(buffer, 'wav');
     const wavBytes = new Uint8Array(await wavBlob.arrayBuffer());
     await ffmpeg.writeFile('input.wav', wavBytes);
-    await ffmpeg.exec(['-i', 'input.wav', '-c:a', 'libmp3lame', '-b:a', '192k', 'output.mp3']);
-    const mp3Data = await ffmpeg.readFile('output.mp3');
-    return new Blob([mp3Data as Uint8Array], { type: 'audio/mpeg' });
+
+    try {
+      await ffmpeg.exec(['-i', 'input.wav', '-c:a', 'libmp3lame', '-b:a', '192k', 'output.mp3']);
+      const mp3Data = await ffmpeg.readFile('output.mp3');
+      return new Blob([mp3Data as Uint8Array], { type: 'audio/mpeg' });
+    } finally {
+      // Best effort cleanup
+      try { await (ffmpeg as any).deleteFile('input.wav'); } catch {}
+      try { await (ffmpeg as any).deleteFile('output.mp3'); } catch {}
+    }
   };
 
   const formatTime = (time: number) => {
@@ -273,7 +309,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
                 <Download className="h-4 w-4 mr-2" />
                 {selectedFormat === 'mp3'
                   ? isFfmpegLoading
-                    ? 'MP3 encoder laden...'
+                    ? 'MP3 encoder laden... (kan 5-20s duren bij eerste keer)'
                     : isEncoding
                       ? 'MP3 encoderen...'
                       : 'Download MP3-segmenten'
