@@ -96,6 +96,13 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
     toast.success('Split point removed');
   };
 
+  const updateSplitPoint = (id: string, newTime: number) => {
+    setSplitPoints(splitPoints.map(point => 
+      point.id === id ? { ...point, time: Math.max(0, Math.min(duration, newTime)) } : point
+    ).sort((a, b) => a.time - b.time));
+    toast.success('Split point updated');
+  };
+
   const downloadSegments = async () => {
     if (!audioBuffer) {
       toast.error('Audio not ready for processing');
@@ -353,6 +360,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
           currentTime={currentTime}
           splitPoints={splitPoints}
           onAddSplitPoint={addSplitPoint}
+          onUpdateSplitPoint={updateSplitPoint}
         />
       </Card>
       

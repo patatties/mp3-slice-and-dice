@@ -9,6 +9,7 @@ interface WaveformDisplayProps {
   currentTime: number;
   splitPoints: SplitPoint[];
   onAddSplitPoint: (time: number) => void;
+  onUpdateSplitPoint: (id: string, newTime: number) => void;
 }
 
 export const WaveformDisplay = ({
@@ -18,10 +19,17 @@ export const WaveformDisplay = ({
   currentTime,
   splitPoints,
   onAddSplitPoint,
+  onUpdateSplitPoint,
 }: WaveformDisplayProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [waveformData, setWaveformData] = useState<number[]>([]);
+  const [dragState, setDragState] = useState<{
+    isDragging: boolean;
+    dragPointId: string | null;
+    startX: number;
+  }>({ isDragging: false, dragPointId: null, startX: 0 });
+  const [hoveredPointId, setHoveredPointId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!audioBuffer) return;
@@ -35,7 +43,7 @@ export const WaveformDisplay = ({
     if (!canvasRef.current || waveformData.length === 0) return;
 
     drawWaveform();
-  }, [waveformData, currentTime, splitPoints]);
+  }, [waveformData, currentTime, splitPoints, hoveredPointId, dragState]);
 
   const generateWaveformData = (buffer: AudioBuffer, samples: number): number[] => {
     const rawData = buffer.getChannelData(0);
@@ -85,17 +93,35 @@ export const WaveformDisplay = ({
     // Draw split points
     splitPoints.forEach(point => {
       const x = (point.time / duration) * width;
-      ctx.strokeStyle = 'hsl(45 100% 60%)';
-      ctx.lineWidth = 2;
+      const isHovered = hoveredPointId === point.id;
+      const isDragging = dragState.isDragging && dragState.dragPointId === point.id;
+      
+      // Draw split point line
+      ctx.strokeStyle = isHovered || isDragging ? 'hsl(45 100% 70%)' : 'hsl(45 100% 60%)';
+      ctx.lineWidth = isHovered || isDragging ? 3 : 2;
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, height);
       ctx.stroke();
 
+      // Draw interactive handle at top
+      ctx.fillStyle = isHovered || isDragging ? 'hsl(45 100% 60%)' : 'hsl(45 100% 50%)';
+      ctx.beginPath();
+      ctx.roundRect(x - 6, 0, 12, 20, 4);
+      ctx.fill();
+      
+      // Draw drag indicator
+      if (isHovered || isDragging) {
+        ctx.fillStyle = 'hsl(45 100% 80%)';
+        ctx.fillRect(x - 1, 6, 2, 8);
+        ctx.fillRect(x - 4, 6, 2, 8);
+        ctx.fillRect(x + 2, 6, 2, 8);
+      }
+
       // Draw split point label
       ctx.fillStyle = 'hsl(45 100% 60%)';
       ctx.font = '12px monospace';
-      ctx.fillText(point.label, x + 5, 15);
+      ctx.fillText(point.label, x + 8, 15);
     });
 
     // Draw current time indicator
@@ -109,15 +135,90 @@ export const WaveformDisplay = ({
   };
 
   const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (dragState.isDragging) return;
+    
     const canvas = canvasRef.current;
     if (!canvas || duration === 0) return;
 
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
+    
+    // Check if clicking near a split point (within 10px)
+    const clickedPoint = splitPoints.find(point => {
+      const pointX = (point.time / duration) * canvas.width;
+      return Math.abs(x - pointX) <= 10;
+    });
+    
+    if (clickedPoint) return; // Don't add new point if clicking on existing one
+    
     const percentage = x / canvas.width;
     const time = percentage * duration;
-
     onAddSplitPoint(time);
+  };
+
+  const handleMouseDown = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas || duration === 0) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    
+    // Check if clicking on a split point handle (top 20px)
+    if (event.clientY - rect.top <= 20) {
+      const dragPoint = splitPoints.find(point => {
+        const pointX = (point.time / duration) * canvas.width;
+        return Math.abs(x - pointX) <= 6;
+      });
+      
+      if (dragPoint) {
+        setDragState({
+          isDragging: true,
+          dragPointId: dragPoint.id,
+          startX: x
+        });
+        event.preventDefault();
+      }
+    }
+  };
+
+  const handleMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas || duration === 0) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    if (dragState.isDragging && dragState.dragPointId) {
+      // Update split point position while dragging
+      const percentage = Math.max(0, Math.min(1, x / canvas.width));
+      const newTime = percentage * duration;
+      onUpdateSplitPoint(dragState.dragPointId, newTime);
+    } else {
+      // Check for hover on split point handles
+      let hoveredId = null;
+      if (y <= 20) {
+        const hoveredPoint = splitPoints.find(point => {
+          const pointX = (point.time / duration) * canvas.width;
+          return Math.abs(x - pointX) <= 6;
+        });
+        hoveredId = hoveredPoint?.id || null;
+      }
+      setHoveredPointId(hoveredId);
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (dragState.isDragging) {
+      setDragState({ isDragging: false, dragPointId: null, startX: 0 });
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredPointId(null);
+    if (dragState.isDragging) {
+      setDragState({ isDragging: false, dragPointId: null, startX: 0 });
+    }
   };
 
   useEffect(() => {
@@ -146,8 +247,16 @@ export const WaveformDisplay = ({
         <div ref={containerRef} className="w-full">
           <canvas
             ref={canvasRef}
-            className="w-full cursor-crosshair rounded border border-border/20"
+            className={`w-full rounded border border-border/20 ${
+              hoveredPointId || dragState.isDragging 
+                ? 'cursor-grab' 
+                : 'cursor-crosshair'
+            } ${dragState.isDragging ? 'cursor-grabbing' : ''}`}
             onClick={handleCanvasClick}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseLeave}
             style={{ height: '150px' }}
           />
         </div>
