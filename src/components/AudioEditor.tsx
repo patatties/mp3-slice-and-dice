@@ -347,7 +347,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
                       ? 'MP3 encoder laden...'
                       : isEncoding
                         ? 'MP3 encoderen...'
-                        : 'Download MP3 segmenten'}
+                        : 'Download MP3 segments'}
                   </span>
                 </div>
               </Button>
