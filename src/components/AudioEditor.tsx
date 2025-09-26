@@ -6,6 +6,7 @@ import { AudioControls } from "./AudioControls";
 import { SplitPointsList } from "./SplitPointsList";
 import { Download, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import * as lamejs from "lamejs";
 
 interface AudioEditorProps {
   audioFile: File;
@@ -94,12 +95,12 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
         const startTime = points[i];
         const endTime = points[i + 1];
         const segmentBuffer = await extractSegment(audioBuffer, startTime, endTime);
-        const blob = await audioBufferToBlob(segmentBuffer);
+        const blob = await audioBufferToMp3Blob(segmentBuffer);
         
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${audioFile.name.replace(/\.[^/.]+$/, '')}_segment_${i + 1}.wav`;
+        a.download = `${audioFile.name.replace(/\.[^/.]+$/, '')}_segment_${i + 1}.mp3`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -137,44 +138,44 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
     return segmentBuffer;
   };
 
-  const audioBufferToBlob = async (buffer: AudioBuffer): Promise<Blob> => {
+  const audioBufferToMp3Blob = async (buffer: AudioBuffer): Promise<Blob> => {
     const numberOfChannels = buffer.numberOfChannels;
-    const length = buffer.length * numberOfChannels * 2;
-    const arrayBuffer = new ArrayBuffer(length + 44);
-    const view = new DataView(arrayBuffer);
+    const sampleRate = buffer.sampleRate;
+    const mp3encoder = new lamejs.Mp3Encoder(numberOfChannels, sampleRate, 128);
     
-    // WAV header
-    const writeString = (offset: number, string: string) => {
-      for (let i = 0; i < string.length; i++) {
-        view.setUint8(offset + i, string.charCodeAt(i));
-      }
-    };
+    const mp3Data = [];
+    const sampleBlockSize = 1152;
     
-    writeString(0, 'RIFF');
-    view.setUint32(4, length + 36, true);
-    writeString(8, 'WAVE');
-    writeString(12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, numberOfChannels, true);
-    view.setUint32(24, buffer.sampleRate, true);
-    view.setUint32(28, buffer.sampleRate * numberOfChannels * 2, true);
-    view.setUint16(32, numberOfChannels * 2, true);
-    view.setUint16(34, 16, true);
-    writeString(36, 'data');
-    view.setUint32(40, length, true);
+    // Convert float32 to int16
+    const leftChannel = buffer.getChannelData(0);
+    const rightChannel = numberOfChannels > 1 ? buffer.getChannelData(1) : leftChannel;
     
-    // Audio data
-    let offset = 44;
-    for (let i = 0; i < buffer.length; i++) {
-      for (let channel = 0; channel < numberOfChannels; channel++) {
-        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(channel)[i]));
-        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
-        offset += 2;
+    const left = new Int16Array(leftChannel.length);
+    const right = new Int16Array(rightChannel.length);
+    
+    for (let i = 0; i < leftChannel.length; i++) {
+      left[i] = Math.max(-32768, Math.min(32767, leftChannel[i] * 32768));
+      right[i] = Math.max(-32768, Math.min(32767, rightChannel[i] * 32768));
+    }
+    
+    // Encode in chunks
+    for (let i = 0; i < left.length; i += sampleBlockSize) {
+      const leftChunk = left.subarray(i, i + sampleBlockSize);
+      const rightChunk = right.subarray(i, i + sampleBlockSize);
+      const mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk);
+      
+      if (mp3buf.length > 0) {
+        mp3Data.push(mp3buf);
       }
     }
     
-    return new Blob([arrayBuffer], { type: 'audio/wav' });
+    // Finalize encoding
+    const mp3buf = mp3encoder.flush();
+    if (mp3buf.length > 0) {
+      mp3Data.push(mp3buf);
+    }
+    
+    return new Blob(mp3Data, { type: 'audio/mp3' });
   };
 
   const formatTime = (time: number) => {
