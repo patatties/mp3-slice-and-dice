@@ -4,10 +4,8 @@ import { Button } from "@/components/ui/button";
 import { WaveformDisplay } from "./WaveformDisplay";
 import { AudioControls } from "./AudioControls";
 import { SplitPointsList } from "./SplitPointsList";
-import { Download, RotateCcw, Loader2 } from "lucide-react";
+import { Download, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 interface AudioEditorProps {
   audioFile: File;
@@ -28,32 +26,6 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
   const [isPlaying, setIsPlaying] = useState(false);
   const [splitPoints, setSplitPoints] = useState<SplitPoint[]>([]);
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
-  const [ffmpeg, setFFmpeg] = useState<FFmpeg | null>(null);
-  const [ffmpegLoaded, setFFmpegLoaded] = useState(false);
-
-  useEffect(() => {
-    // Load FFmpeg
-    const loadFFmpeg = async () => {
-      const ffmpegInstance = new FFmpeg();
-      
-      try {
-        const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
-        await ffmpegInstance.load({
-          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-          workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript'),
-        });
-        
-        setFFmpeg(ffmpegInstance);
-        setFFmpegLoaded(true);
-      } catch (error) {
-        console.error('Error loading FFmpeg:', error);
-        toast.error('Error initializing MP3 encoder');
-      }
-    };
-
-    loadFFmpeg();
-  }, []);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -110,8 +82,8 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
   };
 
   const downloadSegments = async () => {
-    if (!audioBuffer || !ffmpeg || !ffmpegLoaded) {
-      toast.error('Audio processing not ready');
+    if (!audioBuffer) {
+      toast.error('Audio not ready for processing');
       return;
     }
 
@@ -122,12 +94,12 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
         const startTime = points[i];
         const endTime = points[i + 1];
         const segmentBuffer = await extractSegment(audioBuffer, startTime, endTime);
-        const blob = await audioBufferToMp3Blob(segmentBuffer);
+        const blob = await audioBufferToBlob(segmentBuffer);
         
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${audioFile.name.replace(/\.[^/.]+$/, '')}_segment_${i + 1}.mp3`;
+        a.download = `${audioFile.name.replace(/\.[^/.]+$/, '')}_segment_${i + 1}.wav`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -165,30 +137,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
     return segmentBuffer;
   };
 
-  const audioBufferToMp3Blob = async (buffer: AudioBuffer): Promise<Blob> => {
-    if (!ffmpeg) throw new Error('FFmpeg not loaded');
-
-    // Convert AudioBuffer to WAV first
-    const wavBlob = await audioBufferToWavBlob(buffer);
-    const inputData = await fetchFile(wavBlob);
-    
-    // Write input file to FFmpeg
-    await ffmpeg.writeFile('input.wav', inputData);
-    
-    // Convert to MP3
-    await ffmpeg.exec(['-i', 'input.wav', '-codec:a', 'libmp3lame', '-b:a', '128k', 'output.mp3']);
-    
-    // Read output file
-    const outputData = await ffmpeg.readFile('output.mp3');
-    
-    // Clean up
-    await ffmpeg.deleteFile('input.wav');
-    await ffmpeg.deleteFile('output.mp3');
-    
-    return new Blob([outputData], { type: 'audio/mp3' });
-  };
-
-  const audioBufferToWavBlob = async (buffer: AudioBuffer): Promise<Blob> => {
+  const audioBufferToBlob = async (buffer: AudioBuffer): Promise<Blob> => {
     const numberOfChannels = buffer.numberOfChannels;
     const length = buffer.length * numberOfChannels * 2;
     const arrayBuffer = new ArrayBuffer(length + 44);
@@ -250,14 +199,10 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
           <div className="flex gap-3">
             <Button
               onClick={downloadSegments}
-              disabled={splitPoints.length === 0 || !ffmpegLoaded}
+              disabled={splitPoints.length === 0}
               className="bg-accent hover:bg-accent/90 text-accent-foreground"
             >
-              {!ffmpegLoaded ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4 mr-2" />
-              )}
+              <Download className="h-4 w-4 mr-2" />
               Download Segments
             </Button>
             <Button
