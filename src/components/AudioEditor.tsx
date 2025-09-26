@@ -38,6 +38,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
   const [volume, setVolume] = useState(1);
   const [isStartingDownload, setIsStartingDownload] = useState(false);
   const [buttonClicked, setButtonClicked] = useState(false);
+  const [isDownloadingSegment, setIsDownloadingSegment] = useState(false);
 
   useEffect(() => {
     // Always load FFmpeg since we only support MP3
@@ -170,6 +171,41 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
       setButtonClicked(false);
     }
   };
+
+  const downloadSingleSegment = async (startTime: number, endTime: number, segmentIndex: number) => {
+    if (!audioBuffer) {
+      toast.error('Audio not ready for processing');
+      return;
+    }
+
+    try {
+      setIsDownloadingSegment(true);
+      await ensureFfmpeg();
+
+      const segmentBuffer = await extractSegment(audioBuffer, startTime, endTime);
+      const blob = await audioBufferToMp3Blob(segmentBuffer);
+      
+      const filename = `${audioFile.name.replace(/\.[^/.]+$/, '')}_segment_${segmentIndex}.mp3`;
+      
+      // Download the segment
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success(`Segment ${segmentIndex} downloaded!`);
+    } catch (error) {
+      console.error('Error downloading segment:', error);
+      toast.error('Error processing audio segment');
+    } finally {
+      setIsDownloadingSegment(false);
+    }
+  };
+
   const extractSegment = async (buffer: AudioBuffer, startTime: number, endTime: number): Promise<AudioBuffer> => {
     const audioContext = new AudioContext();
     const startSample = Math.floor(startTime * buffer.sampleRate);
@@ -396,7 +432,9 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
           splitPoints={splitPoints}
           onRemoveSplitPoint={removeSplitPoint}
           onAddSplitPoint={addSplitPoint}
+          onDownloadSegment={downloadSingleSegment}
           duration={duration}
+          isDownloadingSegment={isDownloadingSegment}
         />
       )}
       

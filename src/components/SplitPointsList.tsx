@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { X, Scissors, Plus } from "lucide-react";
+import { X, Scissors, Plus, Download } from "lucide-react";
 import { SplitPoint } from "./AudioEditor";
 import { useState } from "react";
 
@@ -10,14 +10,18 @@ interface SplitPointsListProps {
   splitPoints: SplitPoint[];
   onRemoveSplitPoint: (id: string) => void;
   onAddSplitPoint: (time: number) => void;
+  onDownloadSegment: (startTime: number, endTime: number, segmentIndex: number) => void;
   duration: number;
+  isDownloadingSegment: boolean;
 }
 
 export const SplitPointsList = ({
   splitPoints,
   onRemoveSplitPoint,
   onAddSplitPoint,
+  onDownloadSegment,
   duration,
+  isDownloadingSegment,
 }: SplitPointsListProps) => {
   const [timeInput, setTimeInput] = useState("");
   
@@ -144,7 +148,7 @@ export const SplitPointsList = ({
                     key={segment.index}
                     className="bg-secondary/30 border-border/30 p-3 hover:bg-segment-hover/10 transition-colors"
                   >
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">
                           Segment {segment.index}
@@ -157,6 +161,15 @@ export const SplitPointsList = ({
                         <div>{formatTime(segment.start)} → {formatTime(segment.end)}</div>
                         <div className="text-accent">~{estimateFileSize(segment.duration)} MB</div>
                       </div>
+                      <Button
+                        size="sm"
+                        onClick={() => onDownloadSegment(segment.start, segment.end, segment.index)}
+                        disabled={isDownloadingSegment}
+                        className="w-full h-7 text-xs bg-accent/80 hover:bg-accent text-accent-foreground"
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        {isDownloadingSegment ? 'Processing...' : 'Download MP3'}
+                      </Button>
                     </div>
                   </Card>
                 ))}
