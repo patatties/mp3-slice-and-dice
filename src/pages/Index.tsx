@@ -37,6 +37,11 @@ const Index = () => {
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Professional MP3 splitting tool. Upload your audio file, set split points, and download individual segments.
           </p>
+          <div className="flex items-center justify-center mt-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20">
+              🔒 <span className="text-primary font-medium">100% Private</span> - All processing happens locally in your browser
+            </div>
+          </div>
         </header>
 
         {!audioFile ? (

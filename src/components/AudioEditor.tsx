@@ -246,7 +246,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
       return ffmpeg;
     } catch (e) {
       console.error('FFmpeg load failed on all strategies', e);
-      toast.error('Kon MP3-encoder niet laden. Controleer je netwerk of adblockers.');
+      toast.error('Could not load MP3 encoder. Check your network or adblockers.');
       throw e;
     } finally {
       setIsFfmpegLoading(false);
@@ -309,10 +309,10 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
                 <Download className="h-4 w-4 mr-2" />
                 {selectedFormat === 'mp3'
                   ? isFfmpegLoading
-                    ? 'MP3 encoder laden... (kan 5-20s duren bij eerste keer)'
+                    ? 'Loading MP3 encoder... (may take 5-20s first time)'
                     : isEncoding
-                      ? 'MP3 encoderen...'
-                      : 'Download MP3-segmenten'
+                      ? 'Encoding MP3...'
+                      : 'Download MP3 segments'
                   : 'Download Segments'}
               </Button>
             </div>
