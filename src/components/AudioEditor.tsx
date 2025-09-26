@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { WaveformDisplay } from "./WaveformDisplay";
 import { AudioControls } from "./AudioControls";
 import { SplitPointsList } from "./SplitPointsList";
-import { Download, RotateCcw } from "lucide-react";
+import { Download, RotateCcw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
@@ -41,6 +41,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
         await ffmpegInstance.load({
           coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
           wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+          workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript'),
         });
         
         setFFmpeg(ffmpegInstance);
@@ -252,8 +253,12 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
               disabled={splitPoints.length === 0 || !ffmpegLoaded}
               className="bg-accent hover:bg-accent/90 text-accent-foreground"
             >
-              <Download className="h-4 w-4 mr-2" />
-              {!ffmpegLoaded ? 'Loading MP3 Encoder...' : 'Download Segments'}
+              {!ffmpegLoaded ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              Download Segments
             </Button>
             <Button
               onClick={onReset}
