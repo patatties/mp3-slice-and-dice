@@ -154,6 +154,7 @@ export const WaveformDisplay = ({
         
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>0:00</span>
+          <span>Estimated total: ~{((duration * 192) / 8 / 1024).toFixed(1)} MB</span>
           <span>{formatTime(duration)}</span>
         </div>
       </div>

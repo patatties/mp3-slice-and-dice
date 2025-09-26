@@ -360,6 +360,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
         <SplitPointsList
           splitPoints={splitPoints}
           onRemoveSplitPoint={removeSplitPoint}
+          onAddSplitPoint={addSplitPoint}
           duration={duration}
         />
       )}
