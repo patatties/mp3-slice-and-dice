@@ -35,6 +35,12 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
   const [isEncoding, setIsEncoding] = useState(false);
 
   useEffect(() => {
+    if (selectedFormat === 'mp3') {
+      ensureFfmpeg().catch(() => {});
+    }
+  }, [selectedFormat]);
+
+  useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
@@ -253,11 +259,17 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
               </Select>
               <Button
                 onClick={downloadSegments}
-                disabled={splitPoints.length === 0}
+                disabled={splitPoints.length === 0 || (selectedFormat === 'mp3' && (isFfmpegLoading || isEncoding))}
                 className="bg-accent hover:bg-accent/90 text-accent-foreground"
               >
                 <Download className="h-4 w-4 mr-2" />
-                Download Segments
+                {selectedFormat === 'mp3'
+                  ? isFfmpegLoading
+                    ? 'MP3 encoder laden...'
+                    : isEncoding
+                      ? 'MP3 encoderen...'
+                      : 'Download MP3-segmenten'
+                  : 'Download Segments'}
               </Button>
             </div>
             <Button
