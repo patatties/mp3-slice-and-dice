@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { X, Scissors, Plus, Download } from "lucide-react";
+import { Scissors, Plus, Download, Trash2 } from "lucide-react";
 import { SplitPoint } from "./AudioEditor";
 import { useState } from "react";
 
@@ -11,6 +11,7 @@ interface SplitPointsListProps {
   onRemoveSplitPoint: (id: string) => void;
   onAddSplitPoint: (time: number) => void;
   onDownloadSegment: (startTime: number, endTime: number, segmentIndex: number) => void;
+  onDeleteSegment: (segmentIndex: number) => void;
   duration: number;
   isDownloadingSegment: boolean;
 }
@@ -20,6 +21,7 @@ export const SplitPointsList = ({
   onRemoveSplitPoint,
   onAddSplitPoint,
   onDownloadSegment,
+  onDeleteSegment,
   duration,
   isDownloadingSegment,
 }: SplitPointsListProps) => {
@@ -88,53 +90,32 @@ export const SplitPointsList = ({
         
         {splitPoints.length > 0 && (
           <div className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-medium text-muted-foreground">
-                  Split Points ({splitPoints.length})
-                </h4>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="text"
-                    placeholder="mm:ss"
-                    value={timeInput}
-                    onChange={(e) => setTimeInput(e.target.value)}
-                    className="w-20 h-8 text-sm"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleAddSplitPoint();
-                      }
-                    }}
-                  />
-                  <Button
-                    size="sm"
-                    onClick={handleAddSplitPoint}
-                    disabled={!timeInput}
-                    className="h-8 px-3"
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    Add
-                  </Button>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {splitPoints.map((point) => (
-                  <Badge
-                    key={point.id}
-                    variant="outline"
-                    className="bg-split-point/10 border-split-point/30 text-split-point flex items-center gap-2 px-3 py-1"
-                  >
-                    <span>{formatTime(point.time)}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onRemoveSplitPoint(point.id)}
-                      className="h-4 w-4 p-0 hover:bg-destructive/20"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </Badge>
-                ))}
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-medium text-muted-foreground">
+                Add Split Point
+              </h4>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="text"
+                  placeholder="mm:ss"
+                  value={timeInput}
+                  onChange={(e) => setTimeInput(e.target.value)}
+                  className="w-20 h-8 text-sm"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleAddSplitPoint();
+                    }
+                  }}
+                />
+                <Button
+                  size="sm"
+                  onClick={handleAddSplitPoint}
+                  disabled={!timeInput}
+                  className="h-8 px-3"
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add
+                </Button>
               </div>
             </div>
             
@@ -161,15 +142,25 @@ export const SplitPointsList = ({
                         <div>{formatTime(segment.start)} → {formatTime(segment.end)}</div>
                         <div className="text-accent">~{estimateFileSize(segment.duration)} MB</div>
                       </div>
-                      <Button
-                        size="sm"
-                        onClick={() => onDownloadSegment(segment.start, segment.end, segment.index)}
-                        disabled={isDownloadingSegment}
-                        className="w-full h-7 text-xs bg-accent/80 hover:bg-accent text-accent-foreground"
-                      >
-                        <Download className="h-3 w-3 mr-1" />
-                        {isDownloadingSegment ? 'Processing...' : 'Download MP3'}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => onDownloadSegment(segment.start, segment.end, segment.index)}
+                          disabled={isDownloadingSegment}
+                          className="flex-1 h-7 text-xs bg-accent/80 hover:bg-accent text-accent-foreground"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          {isDownloadingSegment ? 'Processing...' : 'Download MP3'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => onDeleteSegment(segment.index)}
+                          className="h-7 px-2 text-xs"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   </Card>
                 ))}

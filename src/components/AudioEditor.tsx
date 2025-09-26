@@ -206,6 +206,18 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
     }
   };
 
+  const deleteSegment = (segmentIndex: number) => {
+    // To delete a segment, remove the split point that defines its end
+    // Segment 1: remove first split point  
+    // Segment 2: remove second split point
+    // etc.
+    const splitPointIndex = segmentIndex - 1; // Convert to 0-based index
+    if (splitPointIndex >= 0 && splitPointIndex < splitPoints.length) {
+      removeSplitPoint(splitPoints[splitPointIndex].id);
+      toast.success(`Segment ${segmentIndex} removed`);
+    }
+  };
+
   const extractSegment = async (buffer: AudioBuffer, startTime: number, endTime: number): Promise<AudioBuffer> => {
     const audioContext = new AudioContext();
     const startSample = Math.floor(startTime * buffer.sampleRate);
@@ -433,6 +445,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
           onRemoveSplitPoint={removeSplitPoint}
           onAddSplitPoint={addSplitPoint}
           onDownloadSegment={downloadSingleSegment}
+          onDeleteSegment={deleteSegment}
           duration={duration}
           isDownloadingSegment={isDownloadingSegment}
         />
