@@ -208,10 +208,10 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
     setIsFfmpegLoading(true);
     try {
       const ffmpeg = new FFmpeg();
-      const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist';
+      const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
       await ffmpeg.load({
-        coreURL: await toBlobURL(`${base}/umd/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${base}/umd/ffmpeg-core.wasm`, 'application/wasm'),
+        coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm'),
         workerURL: await toBlobURL(`${base}/ffmpeg-core.worker.js`, 'text/javascript'),
       });
       ffmpegRef.current = ffmpeg;
