@@ -33,6 +33,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
   const ffmpegRef = useRef<FFmpeg | null>(null);
   const [isFfmpegLoading, setIsFfmpegLoading] = useState(false);
   const [isEncoding, setIsEncoding] = useState(false);
+  const [volume, setVolume] = useState(1);
 
   useEffect(() => {
     if (selectedFormat === 'mp3') {
@@ -290,6 +291,8 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
           setIsPlaying={setIsPlaying}
           currentTime={currentTime}
           duration={duration}
+          volume={volume}
+          setVolume={setVolume}
         />
         
         <WaveformDisplay

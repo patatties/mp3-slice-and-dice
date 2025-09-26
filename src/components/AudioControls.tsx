@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Play, Pause, SkipBack, SkipForward } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Volume2 } from "lucide-react";
 
 interface AudioControlsProps {
   audioRef: React.RefObject<HTMLAudioElement>;
@@ -9,6 +9,8 @@ interface AudioControlsProps {
   setIsPlaying: (playing: boolean) => void;
   currentTime: number;
   duration: number;
+  volume: number;
+  setVolume: (volume: number) => void;
 }
 
 export const AudioControls = ({
@@ -17,6 +19,8 @@ export const AudioControls = ({
   setIsPlaying,
   currentTime,
   duration,
+  volume,
+  setVolume,
 }: AudioControlsProps) => {
   const handlePlayPause = () => {
     const audio = audioRef.current;
@@ -43,6 +47,15 @@ export const AudioControls = ({
     if (!audio) return;
 
     audio.currentTime = Math.max(0, Math.min(duration, audio.currentTime + seconds));
+  };
+
+  const handleVolumeChange = (values: number[]) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const newVolume = values[0] / 100;
+    audio.volume = newVolume;
+    setVolume(newVolume);
   };
 
   const formatTime = (time: number) => {
@@ -100,6 +113,20 @@ export const AudioControls = ({
           <span>{formatTime(currentTime)}</span>
           <span>{formatTime(duration)}</span>
         </div>
+      </div>
+      
+      <div className="flex items-center gap-3 mt-4">
+        <Volume2 className="h-4 w-4 text-muted-foreground" />
+        <Slider
+          value={[volume * 100]}
+          onValueChange={handleVolumeChange}
+          max={100}
+          step={1}
+          className="w-24"
+        />
+        <span className="text-sm text-muted-foreground w-8">
+          {Math.round(volume * 100)}%
+        </span>
       </div>
     </div>
   );
