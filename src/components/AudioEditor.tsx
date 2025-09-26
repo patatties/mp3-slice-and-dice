@@ -29,17 +29,16 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
   const [isPlaying, setIsPlaying] = useState(false);
   const [splitPoints, setSplitPoints] = useState<SplitPoint[]>([]);
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
-  const [selectedFormat, setSelectedFormat] = useState<'wav' | 'mp3'>('wav');
+  // Only support MP3 format
   const ffmpegRef = useRef<FFmpeg | null>(null);
   const [isFfmpegLoading, setIsFfmpegLoading] = useState(false);
   const [isEncoding, setIsEncoding] = useState(false);
   const [volume, setVolume] = useState(1);
 
   useEffect(() => {
-    if (selectedFormat === 'mp3') {
-      ensureFfmpeg().catch(() => {});
-    }
-  }, [selectedFormat]);
+    // Always load FFmpeg since we only support MP3
+    ensureFfmpeg().catch(() => {});
+  }, []);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -102,32 +101,28 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
     }
 
     const points = [0, ...splitPoints.map(p => p.time), duration];
-    const fileExtension = selectedFormat;
     
     try {
       setIsEncoding(true);
-      // Preload encoder if MP3 selected
-      if (selectedFormat === 'mp3') {
-        await ensureFfmpeg();
-      }
+      await ensureFfmpeg();
 
       for (let i = 0; i < points.length - 1; i++) {
         const startTime = points[i];
         const endTime = points[i + 1];
         const segmentBuffer = await extractSegment(audioBuffer, startTime, endTime);
-        const blob = await audioBufferToBlob(segmentBuffer, selectedFormat);
+        const blob = await audioBufferToMp3Blob(segmentBuffer);
         
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${audioFile.name.replace(/\.[^/.]+$/, '')}_segment_${i + 1}.${fileExtension}`;
+        a.download = `${audioFile.name.replace(/\.[^/.]+$/, '')}_segment_${i + 1}.mp3`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       }
       
-      toast.success(`Downloaded ${points.length - 1} ${selectedFormat.toUpperCase()} segments`);
+      toast.success(`Downloaded ${points.length - 1} MP3 segments`);
     } catch (error) {
       console.error('Error downloading segments:', error);
       toast.error('Error processing audio segments');
@@ -159,49 +154,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
     return segmentBuffer;
   };
 
-  const audioBufferToBlob = async (buffer: AudioBuffer, format: 'wav' | 'mp3' = 'wav'): Promise<Blob> => {
-    if (format === 'mp3') {
-      return audioBufferToMp3Blob(buffer);
-    }
-    
-    const numberOfChannels = buffer.numberOfChannels;
-    const length = buffer.length * numberOfChannels * 2;
-    const arrayBuffer = new ArrayBuffer(length + 44);
-    const view = new DataView(arrayBuffer);
-    
-    // WAV header
-    const writeString = (offset: number, string: string) => {
-      for (let i = 0; i < string.length; i++) {
-        view.setUint8(offset + i, string.charCodeAt(i));
-      }
-    };
-    
-    writeString(0, 'RIFF');
-    view.setUint32(4, length + 36, true);
-    writeString(8, 'WAVE');
-    writeString(12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, numberOfChannels, true);
-    view.setUint32(24, buffer.sampleRate, true);
-    view.setUint32(28, buffer.sampleRate * numberOfChannels * 2, true);
-    view.setUint16(32, numberOfChannels * 2, true);
-    view.setUint16(34, 16, true);
-    writeString(36, 'data');
-    view.setUint32(40, length, true);
-    
-    // Audio data
-    let offset = 44;
-    for (let i = 0; i < buffer.length; i++) {
-      for (let channel = 0; channel < numberOfChannels; channel++) {
-        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(channel)[i]));
-        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
-        offset += 2;
-      }
-    }
-    
-    return new Blob([arrayBuffer], { type: 'audio/wav' });
-  };
+  // Removed WAV support - only MP3 now
 
   const ensureFfmpeg = async (): Promise<FFmpeg> => {
     if (ffmpegRef.current) return ffmpegRef.current;
@@ -256,7 +209,8 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
   const audioBufferToMp3Blob = async (buffer: AudioBuffer): Promise<Blob> => {
     const ffmpeg = await ensureFfmpeg();
 
-    const wavBlob = await audioBufferToBlob(buffer, 'wav');
+    // Create WAV blob for FFmpeg input
+    const wavBlob = await createWavBlob(buffer);
     const wavBytes = new Uint8Array(await wavBlob.arrayBuffer());
     await ffmpeg.writeFile('input.wav', wavBytes);
 
@@ -269,6 +223,46 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
       try { await (ffmpeg as any).deleteFile('input.wav'); } catch {}
       try { await (ffmpeg as any).deleteFile('output.mp3'); } catch {}
     }
+  };
+
+  const createWavBlob = (buffer: AudioBuffer): Blob => {
+    const numberOfChannels = buffer.numberOfChannels;
+    const length = buffer.length * numberOfChannels * 2;
+    const arrayBuffer = new ArrayBuffer(length + 44);
+    const view = new DataView(arrayBuffer);
+    
+    // WAV header
+    const writeString = (offset: number, string: string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+    
+    writeString(0, 'RIFF');
+    view.setUint32(4, length + 36, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numberOfChannels, true);
+    view.setUint32(24, buffer.sampleRate, true);
+    view.setUint32(28, buffer.sampleRate * numberOfChannels * 2, true);
+    view.setUint16(32, numberOfChannels * 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, length, true);
+    
+    // Audio data
+    let offset = 44;
+    for (let i = 0; i < buffer.length; i++) {
+      for (let channel = 0; channel < numberOfChannels; channel++) {
+        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(channel)[i]));
+        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+        offset += 2;
+      }
+    }
+    
+    return new Blob([arrayBuffer], { type: 'audio/wav' });
   };
 
   const formatTime = (time: number) => {
@@ -291,31 +285,18 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
           </div>
           
           <div className="flex gap-3">
-            <div className="flex items-center gap-2">
-              <Select value={selectedFormat} onValueChange={(value: 'wav' | 'mp3') => setSelectedFormat(value)}>
-                <SelectTrigger className="w-20">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="wav">WAV</SelectItem>
-                  <SelectItem value="mp3">MP3</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                onClick={downloadSegments}
-                disabled={splitPoints.length === 0 || (selectedFormat === 'mp3' && (isFfmpegLoading || isEncoding))}
-                className="bg-accent hover:bg-accent/90 text-accent-foreground"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                {selectedFormat === 'mp3'
-                  ? isFfmpegLoading
-                    ? 'MP3 encoder laden... (kan 5-20s duren bij eerste keer)'
-                    : isEncoding
-                      ? 'MP3 encoderen...'
-                      : 'Download MP3-segmenten'
-                  : 'Download Segments'}
-              </Button>
-            </div>
+            <Button
+              onClick={downloadSegments}
+              disabled={splitPoints.length === 0 || isFfmpegLoading || isEncoding}
+              className="bg-accent hover:bg-accent/90 text-accent-foreground"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {isFfmpegLoading
+                ? 'MP3 encoder laden...'
+                : isEncoding
+                  ? 'MP3 encoderen...'
+                  : 'Download MP3 segmenten'}
+            </Button>
             <Button
               onClick={onReset}
               variant="outline"
