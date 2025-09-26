@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { WaveformDisplay } from "./WaveformDisplay";
 import { AudioControls } from "./AudioControls";
 import { SplitPointsList } from "./SplitPointsList";
 import { Download, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+// @ts-ignore
+import * as lamejs from "lamejs";
 
 interface AudioEditorProps {
   audioFile: File;
@@ -26,6 +29,7 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
   const [isPlaying, setIsPlaying] = useState(false);
   const [splitPoints, setSplitPoints] = useState<SplitPoint[]>([]);
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
+  const [selectedFormat, setSelectedFormat] = useState<'wav' | 'mp3'>('wav');
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -88,25 +92,26 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
     }
 
     const points = [0, ...splitPoints.map(p => p.time), duration];
+    const fileExtension = selectedFormat;
     
     try {
       for (let i = 0; i < points.length - 1; i++) {
         const startTime = points[i];
         const endTime = points[i + 1];
         const segmentBuffer = await extractSegment(audioBuffer, startTime, endTime);
-        const blob = await audioBufferToBlob(segmentBuffer);
+        const blob = await audioBufferToBlob(segmentBuffer, selectedFormat);
         
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${audioFile.name.replace(/\.[^/.]+$/, '')}_segment_${i + 1}.wav`;
+        a.download = `${audioFile.name.replace(/\.[^/.]+$/, '')}_segment_${i + 1}.${fileExtension}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       }
       
-      toast.success(`Downloaded ${points.length - 1} audio segments`);
+      toast.success(`Downloaded ${points.length - 1} ${selectedFormat.toUpperCase()} segments`);
     } catch (error) {
       console.error('Error downloading segments:', error);
       toast.error('Error processing audio segments');
@@ -137,7 +142,11 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
     return segmentBuffer;
   };
 
-  const audioBufferToBlob = async (buffer: AudioBuffer): Promise<Blob> => {
+  const audioBufferToBlob = async (buffer: AudioBuffer, format: 'wav' | 'mp3' = 'wav'): Promise<Blob> => {
+    if (format === 'mp3') {
+      return audioBufferToMp3Blob(buffer);
+    }
+    
     const numberOfChannels = buffer.numberOfChannels;
     const length = buffer.length * numberOfChannels * 2;
     const arrayBuffer = new ArrayBuffer(length + 44);
@@ -177,6 +186,45 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
     return new Blob([arrayBuffer], { type: 'audio/wav' });
   };
 
+  const audioBufferToMp3Blob = (buffer: AudioBuffer): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const mp3encoder = new lamejs.Mp3Encoder(buffer.numberOfChannels, buffer.sampleRate, 128);
+      const mp3Data: Uint8Array[] = [];
+      
+      const sampleBlockSize = 1152;
+      const numberOfChannels = buffer.numberOfChannels;
+      
+      for (let i = 0; i < buffer.length; i += sampleBlockSize) {
+        const leftChannelSamples = new Int16Array(sampleBlockSize);
+        const rightChannelSamples = numberOfChannels > 1 ? new Int16Array(sampleBlockSize) : undefined;
+        
+        // Convert float samples to int16
+        const leftChannel = buffer.getChannelData(0);
+        const rightChannel = numberOfChannels > 1 ? buffer.getChannelData(1) : null;
+        
+        for (let j = 0; j < sampleBlockSize && i + j < buffer.length; j++) {
+          leftChannelSamples[j] = Math.max(-32768, Math.min(32767, leftChannel[i + j] * 32767));
+          if (rightChannel && rightChannelSamples) {
+            rightChannelSamples[j] = Math.max(-32768, Math.min(32767, rightChannel[i + j] * 32767));
+          }
+        }
+        
+        const mp3buf = mp3encoder.encodeBuffer(leftChannelSamples, rightChannelSamples);
+        if (mp3buf.length > 0) {
+          mp3Data.push(mp3buf);
+        }
+      }
+      
+      const mp3buf = mp3encoder.flush();
+      if (mp3buf.length > 0) {
+        mp3Data.push(mp3buf);
+      }
+      
+      const blob = new Blob(mp3Data, { type: 'audio/mp3' });
+      resolve(blob);
+    });
+  };
+
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
@@ -197,14 +245,25 @@ export const AudioEditor = ({ audioFile, audioUrl, onReset }: AudioEditorProps) 
           </div>
           
           <div className="flex gap-3">
-            <Button
-              onClick={downloadSegments}
-              disabled={splitPoints.length === 0}
-              className="bg-accent hover:bg-accent/90 text-accent-foreground"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download Segments
-            </Button>
+            <div className="flex items-center gap-2">
+              <Select value={selectedFormat} onValueChange={(value: 'wav' | 'mp3') => setSelectedFormat(value)}>
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="wav">WAV</SelectItem>
+                  <SelectItem value="mp3">MP3</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={downloadSegments}
+                disabled={splitPoints.length === 0}
+                className="bg-accent hover:bg-accent/90 text-accent-foreground"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download Segments
+              </Button>
+            </div>
             <Button
               onClick={onReset}
               variant="outline"
