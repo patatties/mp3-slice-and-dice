@@ -34,8 +34,36 @@ const Index = () => {
           <h1 className="text-5xl font-bold bg-gradient-accent bg-clip-text text-transparent mb-4">
             AudioSplit Pro
           </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
             Professional MP3 splitting tool. Upload your audio file, set split points, and download individual segments.
+          </p>
+          
+          <div className="max-w-md mx-auto mb-6">
+            <div className="bg-card/50 backdrop-blur-sm rounded-lg p-6 border border-border/50">
+              <h2 className="text-lg font-semibold mb-4 text-foreground">How it works:</h2>
+              <ol className="text-left space-y-2 text-sm text-muted-foreground">
+                <li className="flex items-start gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-primary/20 text-primary rounded-full flex items-center justify-center text-xs font-medium">1</span>
+                  Upload your MP3
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-primary/20 text-primary rounded-full flex items-center justify-center text-xs font-medium">2</span>
+                  Decide your split points
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-primary/20 text-primary rounded-full flex items-center justify-center text-xs font-medium">3</span>
+                  Press download MP3 segments
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-primary/20 text-primary rounded-full flex items-center justify-center text-xs font-medium">4</span>
+                  The downloads will come one after the other
+                </li>
+              </ol>
+            </div>
+          </div>
+
+          <p className="text-sm text-muted-foreground/80 max-w-lg mx-auto">
+            🔒 All processing happens in your browser. We don't store any data or MP3 files.
           </p>
         </header>
 
