@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Music } from "lucide-react";
+import { Music, Video } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Index = () => {
@@ -10,6 +10,13 @@ const Index = () => {
       icon: Music,
       path: "/audio-splitter",
       color: "bg-primary/10 text-primary"
+    },
+    {
+      title: "Video Splitter",
+      description: "Upload je video, stel splitpunten in, en download individuele segmenten met gemak.",
+      icon: Video,
+      path: "/video-splitter",
+      color: "bg-accent/10 text-accent"
     }
   ];
 

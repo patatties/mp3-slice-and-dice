@@ -7,9 +7,11 @@ import { cn } from "@/lib/utils";
 
 interface FileUploadProps {
   onFileUpload: (file: File) => void;
+  acceptedTypes?: 'audio' | 'video';
+  label?: string;
 }
 
-export const FileUpload = ({ onFileUpload }: FileUploadProps) => {
+export const FileUpload = ({ onFileUpload, acceptedTypes = 'audio', label }: FileUploadProps) => {
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
       if (acceptedFiles.length > 0) {
@@ -19,11 +21,13 @@ export const FileUpload = ({ onFileUpload }: FileUploadProps) => {
     [onFileUpload]
   );
 
+  const acceptConfig = acceptedTypes === 'audio' 
+    ? { 'audio/*': ['.mp3', '.wav', '.m4a', '.aac', '.ogg'] }
+    : { 'video/*': ['.mp4', '.webm', '.mov', '.avi', '.mkv'] };
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'audio/*': ['.mp3', '.wav', '.m4a', '.aac', '.ogg']
-    },
+    accept: acceptConfig,
     multiple: false,
   });
 
@@ -40,34 +44,40 @@ export const FileUpload = ({ onFileUpload }: FileUploadProps) => {
         >
           <input {...getInputProps()} />
           
-          <div className="space-y-6">
-            <div className="flex justify-center">
-              <div className="p-6 rounded-full bg-gradient-accent">
-                {isDragActive ? (
-                  <Upload className="h-12 w-12 text-white" />
-                ) : (
-                  <Music className="h-12 w-12 text-white" />
-                )}
+            <div className="space-y-6">
+              <div className="flex justify-center">
+                <div className="p-6 rounded-full bg-gradient-accent">
+                  {isDragActive ? (
+                    <Upload className="h-12 w-12 text-white" />
+                  ) : (
+                    <Music className="h-12 w-12 text-white" />
+                  )}
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <h3 className="text-2xl font-semibold">
+                  {isDragActive 
+                    ? `Drop your ${label || acceptedTypes} file here` 
+                    : `Upload ${label || acceptedTypes} File`}
+                </h3>
+                <p className="text-muted-foreground">
+                  {acceptedTypes === 'audio' 
+                    ? "Drag and drop your MP3, WAV, or other audio file here, or click to browse"
+                    : "Drag and drop your MP4, WebM, MOV, or other video file here, or click to browse"}
+                </p>
+              </div>
+              
+              <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                Choose File
+              </Button>
+              
+              <div className="text-sm text-muted-foreground">
+                {acceptedTypes === 'audio' 
+                  ? "Supported formats: MP3, WAV, M4A, AAC, OGG"
+                  : "Supported formats: MP4, WebM, MOV, AVI, MKV"}
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <h3 className="text-2xl font-semibold">
-                {isDragActive ? "Drop your audio file here" : "Upload MP3 File"}
-              </h3>
-              <p className="text-muted-foreground">
-                Drag and drop your MP3, WAV, or other audio file here, or click to browse
-              </p>
-            </div>
-            
-            <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              Choose File
-            </Button>
-            
-            <div className="text-sm text-muted-foreground">
-              Supported formats: MP3, WAV, M4A, AAC, OGG
-            </div>
-          </div>
         </div>
       </Card>
     </div>

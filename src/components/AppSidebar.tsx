@@ -1,4 +1,4 @@
-import { Home, Music } from "lucide-react";
+import { Home, Music, Video } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import {
@@ -16,6 +16,7 @@ import {
 const menuItems = [
   { title: "Home", url: "/", icon: Home },
   { title: "Audio Splitter", url: "/audio-splitter", icon: Music },
+  { title: "Video Splitter", url: "/video-splitter", icon: Video },
 ];
 
 export function AppSidebar() {
