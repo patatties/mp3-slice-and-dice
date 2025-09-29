@@ -330,36 +330,40 @@ export const VideoEditor = ({ videoFile, videoUrl, onReset }: VideoEditorProps) 
           </div>
         </div>
         
-        <div className="mb-6">
-          <Card className="bg-secondary/20 border-border/30 overflow-hidden">
-            <video 
-              ref={videoRef} 
-              src={videoUrl} 
-              className="w-full aspect-video object-contain bg-black"
-              controls={false}
-            />
-          </Card>
-        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <Card className="bg-secondary/20 border-border/30 overflow-hidden">
+              <video 
+                ref={videoRef} 
+                src={videoUrl} 
+                className="w-full aspect-video object-contain bg-black"
+                controls={false}
+              />
+            </Card>
+          </div>
 
-        <VideoControls
-          videoRef={videoRef}
-          videoUrl={videoUrl}
-          isPlaying={isPlaying}
-          setIsPlaying={setIsPlaying}
-          currentTime={currentTime}
-          duration={duration}
-          volume={volume}
-          setVolume={setVolume}
-        />
-        
-        <VideoTimelineDisplay
-          videoUrl={videoUrl}
-          duration={duration}
-          currentTime={currentTime}
-          splitPoints={splitPoints}
-          onAddSplitPoint={addSplitPoint}
-          onUpdateSplitPoint={updateSplitPoint}
-        />
+          <div className="space-y-4">
+            <VideoControls
+              videoRef={videoRef}
+              videoUrl={videoUrl}
+              isPlaying={isPlaying}
+              setIsPlaying={setIsPlaying}
+              currentTime={currentTime}
+              duration={duration}
+              volume={volume}
+              setVolume={setVolume}
+            />
+            
+            <VideoTimelineDisplay
+              videoUrl={videoUrl}
+              duration={duration}
+              currentTime={currentTime}
+              splitPoints={splitPoints}
+              onAddSplitPoint={addSplitPoint}
+              onUpdateSplitPoint={updateSplitPoint}
+            />
+          </div>
+        </div>
       </Card>
       
       {splitPoints.length > 0 && (
