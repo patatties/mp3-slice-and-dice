@@ -330,6 +330,17 @@ export const VideoEditor = ({ videoFile, videoUrl, onReset }: VideoEditorProps) 
           </div>
         </div>
         
+        <div className="mb-6">
+          <Card className="bg-secondary/20 border-border/30 overflow-hidden">
+            <video 
+              ref={videoRef} 
+              src={videoUrl} 
+              className="w-full aspect-video object-contain bg-black"
+              controls={false}
+            />
+          </Card>
+        </div>
+
         <VideoControls
           videoRef={videoRef}
           videoUrl={videoUrl}
@@ -362,8 +373,6 @@ export const VideoEditor = ({ videoFile, videoUrl, onReset }: VideoEditorProps) 
           isDownloadingSegment={isDownloadingSegment}
         />
       )}
-      
-      <video ref={videoRef} src={videoUrl} style={{ display: 'none' }} />
     </div>
   );
 };
