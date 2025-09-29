@@ -32,7 +32,7 @@ const Index = () => {
       <div className="container mx-auto px-4 py-8">
         <header className="text-center mb-12">
           <h1 className="text-5xl font-bold bg-gradient-accent bg-clip-text text-transparent mb-2">
-            Mp3 splitter
+            Audio Splitter
           </h1>
           <p className="text-sm text-muted-foreground/60 mb-4">by Patatties</p>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
