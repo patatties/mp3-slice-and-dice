@@ -36,7 +36,7 @@ const Index = () => {
           </h1>
           <p className="text-sm text-muted-foreground/60 mb-4">by Patatties</p>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            Professional MP3 splitting tool. Upload your audio file, set split points, and download individual segments.
+            Upload your audio, set split points, and download individual segments with ease.
           </p>
           
           <div className="max-w-md mx-auto mb-6">
